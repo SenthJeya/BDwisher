@@ -151,7 +151,14 @@ app.post('/api/wish', upload.single('photo'), async (req, res) => {
     res.status(500).json({ error: 'Error saving wish' });
   }
 });
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.get('/', (req, res) => {
+  res.json({ message: 'BD Wisher API is running!', status: 'ready' });
 });
+
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
