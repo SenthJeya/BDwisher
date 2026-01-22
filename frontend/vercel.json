@@ -1,21 +1,9 @@
 {
   "cleanUrls": true,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/src/(.*)",
-      "dest": "/src/$1"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/(.*).(js|css|png|jpg|svg|ico)",
-      "dest": "/$1.$2"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!assets/|BD wish.png|vite.svg|favicon.ico).*)",
+      "destination": "/index.html"
     }
   ]
 }
