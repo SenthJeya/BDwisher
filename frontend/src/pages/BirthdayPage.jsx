@@ -24,7 +24,8 @@ export default function BirthdayPage() {
   const [data, setData] = useState({ name: '', message: '', photo: null, startTime: null });
 
   useEffect(() => {
-    fetch('/api/wish')
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    fetch(`${apiUrl}/api/wish`)
       .then(res => res.json())
       .then(data => setData(data))
       .catch(err => console.error('Error fetching wish:', err));

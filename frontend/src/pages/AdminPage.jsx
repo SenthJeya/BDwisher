@@ -65,7 +65,8 @@ export default function AdminPage({ isAuthenticated, setIsAuthenticated }) {
 
     try {
       setIsLoading(true);
-      const res = await fetch('/api/wish', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${apiUrl}/api/wish`, {
         method: 'POST',
         body: formData
       });
