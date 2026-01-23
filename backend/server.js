@@ -4,6 +4,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
 import multer from 'multer';
+import { DateTime } from 'luxon';
 
 const app = express();
 const PORT = 3001;
@@ -19,7 +20,7 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-timezone']
 }));
 app.use(bodyParser.json());
 
@@ -55,35 +56,121 @@ const Wish = mongoose.model('Wish', wishSchema);
 // Routes
 
 // Get currently active wish (Public)
-app.get('/api/wish', async (req, res) => {
+// app.get('/api/wish', async (req, res) => {
+//   try {
+//     const now = new Date();
+//     // Find a wish where now is between startTime and endTime
+//     const wish = await Wish.findOne({
+//       startTime: { $lte: now },
+//       endTime: { $gte: now }
+//     });
+
+//     if (!wish) {
+//        return res.json({ name: '', message: '', photo: null });
+//     }
+    
+//     // Convert buffer to base64 for frontend
+//     const wishData = wish.toObject();
+//     if (wishData.photo && wishData.photo.data) {
+//         wishData.photo = `data:${wish.photo.contentType};base64,${wish.photo.data.toString('base64')}`;
+//         // Remove raw buffer
+//         delete wishData.photo.data;
+//     } else {
+//         wishData.photo = null;
+//     }
+
+//     res.json(wishData);
+//   } catch (error) {
+//     console.error('Error fetching wish:', error);
+//     res.status(500).json({ error: 'Error fetching wish' });
+//   }
+// });
+
+// app.get('/api/wish', async (req, res) => {
+//   try {
+//     const now = new Date();
+
+//     const wish = await Wish.findOne({
+//       startTime: { $lte: now },
+//       endTime:   { $gte: now }
+//     });
+
+//     let responseData;
+
+//     if (!wish) {
+//       responseData = { name: '', message: '', photo: null };
+//     } else {
+//       const wishData = wish.toObject();
+//       if (wish.photo?.data) {
+//         wishData.photo = `data:${wish.photo.contentType};base64,${wish.photo.data.toString('base64')}`;
+//       } else {
+//         wishData.photo = null;
+//       }
+//       responseData = wishData;
+//     }
+
+//     // Add debug fields so you can see in browser Network tab
+//     responseData._debug = {
+//       serverNowUTC: now.toISOString(),
+//       foundWish: !!wish,
+//       queryUsed: { startTime: { $lte: now.toISOString() }, endTime: { $gte: now.toISOString() } }
+//     };
+
+//     res.json(responseData);
+//   } catch (error) {
+//     console.error('Error fetching wish:', error);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
+
+
+
+app.get('/api/getwish', async (req, res) => {
   try {
-    const now = new Date();
-    // Find a wish where now is between startTime and endTime
+    const userZone = req.headers['x-timezone'] || 'UTC';
+
+    // Current time in user's timezone
+    const nowInUserTZ = DateTime.now().setZone(userZone);
+
+    // Convert to UTC for MongoDB comparison
+    const nowUTC = nowInUserTZ.toUTC();
+
     const wish = await Wish.findOne({
-      startTime: { $lte: now },
-      endTime: { $gte: now }
+      startTime: { $lte: nowUTC.toJSDate() },
+      endTime:   { $gte: nowUTC.toJSDate() }
     });
 
     if (!wish) {
-       return res.json({ name: '', message: '', photo: null });
+      return res.json({ name: '', message: '', photo: null });
     }
-    
-    // Convert buffer to base64 for frontend
+
     const wishData = wish.toObject();
-    if (wishData.photo && wishData.photo.data) {
-        wishData.photo = `data:${wish.photo.contentType};base64,${wish.photo.data.toString('base64')}`;
-        // Remove raw buffer
-        delete wishData.photo.data;
+
+    if (wish.photo?.data) {
+      wishData.photo = `data:${wish.photo.contentType};base64,${wish.photo.data.toString('base64')}`;
     } else {
-        wishData.photo = null;
+      wishData.photo = null;
     }
+
+    // Optional debug (remove in production)
+    wishData._debug = {
+      userTimeZone: userZone,
+      nowInUserTZ: nowInUserTZ.toISO(),
+      nowUTC: nowUTC.toISO(),
+      startTimeUTC: wish.startTime,
+      endTimeUTC: wish.endTime
+    };
 
     res.json(wishData);
   } catch (error) {
     console.error('Error fetching wish:', error);
-    res.status(500).json({ error: 'Error fetching wish' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
+
+
+
 
 // Add new wish (Admin) - creates new, verifies overlap, auto calculates end time (1 hr)
 app.post('/api/wish', upload.single('photo'), async (req, res) => {

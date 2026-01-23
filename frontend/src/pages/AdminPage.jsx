@@ -78,7 +78,7 @@ export default function AdminPage({ isAuthenticated, setIsAuthenticated }) {
           setIsLoading(false);
           toast.success('Wish Scheduled Successfully!');
           navigate('/');
-        }, 2000);
+        }, 1000);
       } else {
         setIsLoading(false);
         toast.error(data.error || 'Failed to save wish');
