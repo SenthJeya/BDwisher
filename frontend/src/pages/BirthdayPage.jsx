@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Confetti from 'react-confetti';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 export default function BirthdayPage() {
   const location = useLocation();
@@ -21,10 +22,11 @@ export default function BirthdayPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const [data, setData] = useState({ name: '', message: '', photo: null, startTime: null });
+  const [wishes, setWishes] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    const fetchWish = async () => {
+    const fetchWishes = async () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -40,22 +42,29 @@ export default function BirthdayPage() {
         }
 
         const jsonData = await res.json();
-        setData(jsonData);
+        setWishes(Array.isArray(jsonData) ? jsonData : []);
+        setCurrentIndex(0);
       } catch (err) {
-        console.error('Error fetching wish:', err);
-        // Set default empty data on error to avoid breaking the UI
-        setData({ name: '', message: '', photo: null, startTime: null });
+        console.error('Error fetching wishes:', err);
+        setWishes([]);
       }
     };
 
-    fetchWish();
-  }, [location.key]); // Refetch when navigation happens
+    fetchWishes();
+  }, [location.key]);
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % wishes.length);
+  };
+
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + wishes.length) % wishes.length);
+  };
 
   // Helper to get formatted date "OCT 20"
   const getDateDisplay = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    // Month short name
     const month = date.toLocaleString('default', { month: 'short' }).toUpperCase();
     const day = date.getDate();
     return (
@@ -66,151 +75,218 @@ export default function BirthdayPage() {
     );
   };
 
-  const initial = data.name ? data.name.charAt(0).toUpperCase() : '';
-  const dateDisplay = getDateDisplay(data.startTime);
+  const currentWish = wishes[currentIndex];
+  const initial = currentWish?.name ? currentWish.name.charAt(0).toUpperCase() : '';
+  const dateDisplay = currentWish?.startTime ? getDateDisplay(currentWish.startTime) : null;
 
   return (
     <div className="page-container" style={{ position: 'relative', overflow: 'hidden', minHeight: 'calc(100vh - 80px)', padding: '2rem 1rem' }}>
-      {data.name && <Confetti width={windowSize.width} height={windowSize.height} gravity={0.03} numberOfPieces={300} recycle={true} />}
+      {wishes.length > 0 && <Confetti width={windowSize.width} height={windowSize.height} gravity={0.03} numberOfPieces={300} recycle={true} />}
       
-      {!data.name ? (
+      {wishes.length === 0 ? (
         <motion.div
           className="glass"
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          style={{ padding: '4rem', textAlign: 'center', zIndex: 1 }}
+          style={{ padding: '4rem', textAlign: 'center', zIndex: 1, margin: 'auto' }}
         >
           <h1 className="gradient-text" style={{ fontSize: '3rem' }}>Check back later!</h1>
           <p style={{ marginTop: '1rem', opacity: 0.7 }}>No active celebrations at the moment.</p>
         </motion.div>
       ) : (
-        <div className="split-container">
-          {/* Left Box: Image, Date, First Letter */}
-          <motion.div
-            className="glass split-box"
-            initial={{ x: -100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            style={{ position: 'relative', overflow: 'hidden' }}
-          >
-            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', width: '100%' }}>
-              {/* First Letter - Large and Stylized */}
-              <motion.div 
-                initial={{ scale: 0, rotate: -20 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: 0.4, type: 'spring', stiffness: 200 }}
-                style={{ 
-                  fontSize: '5rem', 
-                  fontWeight: '900', 
-                  color: 'white',
-                  textShadow: '0 0 30px var(--accent)',
-                  background: 'rgba(255,255,255,0.1)',
-                  width: '100px',
-                  height: '100px',
+        <div style={{ position: 'relative', width: '100%', maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center' }}>
+          
+          {/* Navigation Arrows */}
+          {wishes.length > 1 && (
+            <>
+              <button 
+                onClick={handlePrev}
+                style={{
+                  position: 'fixed',
+                  left: '20px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '50%',
+                  width: '50px',
+                  height: '50px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderRadius: '20px',
-                  border: '2px solid var(--accent)',
-                  marginBottom: '0.5rem'
+                  color: 'white',
+                  cursor: 'pointer',
+                  zIndex: 100,
+                  transition: 'all 0.3s ease',
+                  backdropFilter: 'blur(10px)'
                 }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
               >
-                {initial}
-              </motion.div>
+                <FaChevronLeft size={24} />
+              </button>
 
-              {/* Image */}
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.6, duration: 0.6 }}
+              <button 
+                onClick={handleNext}
+                style={{
+                  position: 'fixed',
+                  right: '20px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '50%',
+                  width: '50px',
+                  height: '50px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  cursor: 'pointer',
+                  zIndex: 100,
+                  transition: 'all 0.3s ease',
+                  backdropFilter: 'blur(10px)'
+                }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
               >
-                {data.photo ? (
-                  <motion.img 
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-                    src={data.photo}
-                    alt="Birthday"
+                <FaChevronRight size={24} />
+              </button>
+            </>
+          )}
+
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={currentIndex}
+              initial={{ x: 50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -50, opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="split-container"
+              style={{ width: '100%' }}
+            >
+              {/* Left Box: Image, Date, First Letter */}
+              <motion.div
+                className="glass split-box"
+                style={{ position: 'relative', overflow: 'hidden' }}
+              >
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', width: '100%' }}>
+                  {/* First Letter */}
+                  <motion.div 
+                    initial={{ scale: 0, rotate: -20 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
                     style={{ 
-                      width: '260px', 
-                      height: '260px', 
-                      objectFit: 'cover', 
-                      borderRadius: '50%',
-                      border: '6px solid var(--accent)',
-                      boxShadow: '0 20px 40px rgba(0,0,0,0.5)' 
-                    }} 
-                  />
-                ) : (
-                  <div style={{ fontSize: '8rem', filter: 'drop-shadow(0 0 20px var(--accent))' }}>🎂</div>
-                )}
+                      fontSize: '5rem', 
+                      fontWeight: '900', 
+                      color: 'white',
+                      textShadow: '0 0 30px var(--accent)',
+                      background: 'rgba(255,255,255,0.1)',
+                      width: '100px',
+                      height: '100px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '20px',
+                      border: '2px solid var(--accent)',
+                      marginBottom: '0.5rem'
+                    }}
+                  >
+                    {initial}
+                  </motion.div>
+
+                  {/* Image */}
+                  <motion.div
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.6 }}
+                  >
+                    {currentWish.photo ? (
+                      <motion.img 
+                        animate={{ y: [0, -10, 0] }}
+                        transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+                        src={currentWish.photo}
+                        alt="Birthday"
+                        style={{ 
+                          width: '260px', 
+                          height: '260px', 
+                          objectFit: 'cover', 
+                          borderRadius: '50%',
+                          border: '6px solid var(--accent)',
+                          boxShadow: '0 20px 40px rgba(0,0,0,0.5)' 
+                        }} 
+                      />
+                    ) : (
+                      <div style={{ fontSize: '8rem', filter: 'drop-shadow(0 0 20px var(--accent))' }}>🎂</div>
+                    )}
+                  </motion.div>
+
+                  {/* Date */}
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    style={{ 
+                      textAlign: 'center',
+                      background: 'rgba(0,0,0,0.2)',
+                      padding: '1rem 2rem',
+                      borderRadius: '15px',
+                      border: '1px solid var(--glass-border)',
+                      width: '200px'
+                    }}
+                  >
+                    {dateDisplay}
+                  </motion.div>
+                </div>
               </motion.div>
 
-              {/* Date */}
+              {/* Right Box: Message */}
               <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                style={{ 
-                  textAlign: 'center',
-                  background: 'rgba(0,0,0,0.2)',
-                  padding: '1rem 2rem',
-                  borderRadius: '15px',
-                  border: '1px solid var(--glass-border)',
-                  width: '200px'
-                }}
+                className="glass split-box"
+                style={{ justifyContent: 'flex-start', textAlign: 'left', alignItems: 'flex-start' }}
               >
-                {dateDisplay}
+                <motion.h4
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                  style={{ textTransform: 'uppercase', letterSpacing: '3px', marginBottom: '1rem', color: 'var(--accent)' }}
+                >
+                  Happy Birthday!
+                </motion.h4>
+                
+                <motion.h1
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="gradient-text"
+                  style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', marginBottom: '2rem', lineHeight: 1.1 }}
+                >
+                  {currentWish.name}
+                </motion.h1>
+
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  style={{ 
+                    fontSize: '1.25rem', 
+                    lineHeight: '1.8', 
+                    color: '#cbd5e1', 
+                    width: '100%',
+                    maxHeight: '400px',
+                    overflowY: 'auto',
+                    paddingRight: '1rem',
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: 'var(--accent) transparent'
+                  }}
+                >
+                  {currentWish.message?.split('\n').map((para, i) => (
+                    <p key={i} style={{ marginBottom: '1.5rem' }}>{para}</p>
+                  ))}
+                </motion.div>
               </motion.div>
-            </div>
-          </motion.div>
-
-          {/* Right Box: Message */}
-          <motion.div
-            className="glass split-box"
-            initial={{ x: 100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            style={{ justifyContent: 'flex-start', textAlign: 'left', alignItems: 'flex-start' }}
-          >
-            <motion.h4
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              style={{ textTransform: 'uppercase', letterSpacing: '3px', marginBottom: '1rem', color: 'var(--accent)' }}
-            >
-              Happy Birthday!
-            </motion.h4>
-            
-            <motion.h1
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="gradient-text"
-              style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', marginBottom: '2rem', lineHeight: 1.1 }}
-            >
-              {data.name}
-            </motion.h1>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              style={{ 
-                fontSize: '1.25rem', 
-                lineHeight: '1.8', 
-                color: '#cbd5e1', 
-                width: '100%',
-                maxHeight: '400px',
-                overflowY: 'auto',
-                paddingRight: '1rem',
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'var(--accent) transparent'
-              }}
-            >
-              {data.message.split('\n').map((para, i) => (
-                <p key={i} style={{ marginBottom: '1.5rem' }}>{para}</p>
-              ))}
             </motion.div>
-          </motion.div>
+          </AnimatePresence>
         </div>
       )}
     </div>

@@ -48,8 +48,8 @@ const wishSchema = new mongoose.Schema({
   endTime: { type: Date, required: true }
 });
 
-// Auto-delete document 0 seconds after endTime
-wishSchema.index({ endTime: 1 }, { expireAfterSeconds: 0 });
+// Auto-delete document 2 days (172800 seconds) after endTime
+wishSchema.index({ endTime: 1 }, { expireAfterSeconds: 172800 });
 
 const Wish = mongoose.model('Wish', wishSchema);
 
@@ -129,42 +129,32 @@ const Wish = mongoose.model('Wish', wishSchema);
 app.get('/api/getwish', async (req, res) => {
   try {
     const userZone = req.headers['x-timezone'] || 'UTC';
-
-    // Current time in user's timezone
     const nowInUserTZ = DateTime.now().setZone(userZone);
-
-    // Convert to UTC for MongoDB comparison
     const nowUTC = nowInUserTZ.toUTC();
 
-    const wish = await Wish.findOne({
+    // Find ALL active wishes
+    const wishes = await Wish.find({
       startTime: { $lte: nowUTC.toJSDate() },
       endTime:   { $gte: nowUTC.toJSDate() }
+    }).sort({ startTime: 1 }); // Oldest starts first
+
+    if (!wishes || wishes.length === 0) {
+      return res.json([]);
+    }
+
+    const processedWishes = wishes.map(wish => {
+      const wishData = wish.toObject();
+      if (wish.photo?.data) {
+        wishData.photo = `data:${wish.photo.contentType};base64,${wish.photo.data.toString('base64')}`;
+      } else {
+        wishData.photo = null;
+      }
+      return wishData;
     });
 
-    if (!wish) {
-      return res.json({ name: '', message: '', photo: null });
-    }
-
-    const wishData = wish.toObject();
-
-    if (wish.photo?.data) {
-      wishData.photo = `data:${wish.photo.contentType};base64,${wish.photo.data.toString('base64')}`;
-    } else {
-      wishData.photo = null;
-    }
-
-    // Optional debug (remove in production)
-    wishData._debug = {
-      userTimeZone: userZone,
-      nowInUserTZ: nowInUserTZ.toISO(),
-      nowUTC: nowUTC.toISO(),
-      startTimeUTC: wish.startTime,
-      endTimeUTC: wish.endTime
-    };
-
-    res.json(wishData);
+    res.json(processedWishes);
   } catch (error) {
-    console.error('Error fetching wish:', error);
+    console.error('Error fetching wishes:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -190,25 +180,6 @@ app.post('/api/wish', upload.single('photo'), async (req, res) => {
 
     // Calculate End Time (Start + 1 Hour)
     const end = new Date(start.getTime() + 60 * 60 * 1000);
-
-    // Validation 2: Overlap
-    // Check if any wish overlaps with [start, end]
-    const overlap = await Wish.findOne({
-        $or: [
-            { startTime: { $lt: end }, endTime: { $gt: start } } 
-        ]
-    });
-
-    if (overlap) {
-        return res.status(400).json({ 
-            error: 'Time slot overlaps with an existing wish.',
-            conflictingWish: {
-                startTime: overlap.startTime,
-                endTime: overlap.endTime,
-                name: overlap.name
-            }
-        });
-    }
 
     const newWish = new Wish({
         name,

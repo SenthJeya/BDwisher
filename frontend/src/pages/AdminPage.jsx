@@ -185,6 +185,7 @@ export default function AdminPage({ isAuthenticated, setIsAuthenticated }) {
                         type="datetime-local" 
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
                         style={{ 
                             width: '100%', 
                             padding: '0.75rem', 
