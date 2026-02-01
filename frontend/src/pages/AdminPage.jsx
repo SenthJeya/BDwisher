@@ -55,10 +55,14 @@ export default function AdminPage({ isAuthenticated, setIsAuthenticated }) {
       return;
     }
 
+    // Convert local datetime to UTC
+    const localDate = new Date(startTime);
+    const utcTime = localDate.toISOString();
+
     const formData = new FormData();
     formData.append('name', name.toUpperCase());
     formData.append('message', message);
-    formData.append('startTime', startTime);
+    formData.append('startTime', utcTime);
     if (photo) {
       formData.append('photo', photo);
     }
